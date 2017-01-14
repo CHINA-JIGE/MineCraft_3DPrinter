@@ -1,0 +1,7 @@
+﻿  main.cpp
+  LayerRasterizer.cpp
+f:\1vs project\minecraft3dprinter\minecraft3dprinter\layerrasterizer.cpp(21): warning C4018: “<”: 有符号/无符号不匹配
+f:\1vs project\minecraft3dprinter\minecraft3dprinter\layerrasterizer.cpp(80): warning C4018: “<=”: 有符号/无符号不匹配
+  正在生成代码...
+  MineCraft3DPrinter.vcxproj -> F:\1VS PROJECT\MineCraft3DPrinter\Debug\MineCraft3DPrinter.exe
+  MineCraft3DPrinter.vcxproj -> F:\1VS PROJECT\MineCraft3DPrinter\Debug\MineCraft3DPrinter.pdb (Partial PDB)
