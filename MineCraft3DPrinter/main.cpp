@@ -2,6 +2,12 @@
 
 //debug test param:
 //sphere.stl 100 100 100 10 10 10 stone yes
+static int printedBlockCount = 0;
+
+void SimulateKeyboard(
+	UINT posX ,UINT posY, UINT posZ, 
+	UINT sizeX,UINT sizeY, UINT sizeZ, 
+	std::string blockName, const std::vector<Layer>* layerGroup);
 
 int main()
 {
@@ -15,6 +21,8 @@ int main()
 	std::cout << "-----注意2：MC里y坐标是竖直坐标，是垂直于XZ水平面的" << std::endl;
 	std::cout << "-----注意3：务必在创造模式里使用" << std::endl;
 	std::cout << "-----注意4：在计算完成后会弹出一个对话框，在按下对话框确定以后在10秒以内回到MC的界面" << std::endl;
+	std::cout << "-----注意5：请将输入法调至：英文，小写" << std::endl;
+
 
 	std::cout << "------请输入参数串： [STL模型文件路径] [x] [y] [z] [size_X] [size_Y] [size_Z] [方块名字，例如有：stone] [是否填充物体内部(yes|no)]" << std::endl;
 	std::cout << "------示例：tree.STL 100 200 300 40 40 80 stone yes" << std::endl;
@@ -26,12 +34,14 @@ int main()
 	//after rasterizing lines, there is an optional steps which pad the pixel area inside closed lines
 
 	//input strings
-	/*std::cin >> filePath >> posX >> posY >> posZ  >> 
-		sizeX >> sizeY >> sizeZ >> blockName >>strEnablePadding;*/
-	filePath = "sphere.stl";
-	posX = posY = posZ = sizeX = sizeY = sizeZ = 20;
+	std::cin >> filePath >> posX >> posY >> posZ  >> 
+		sizeX >> sizeY >> sizeZ >> blockName >>strEnablePadding;
+
+
+	/*filePath = "sphere.stl";
+	posX = posY = posZ = sizeX = sizeY = 15;sizeZ = 15;
 	blockName = "stone";
-	strEnablePadding = "false";
+	strEnablePadding = "yes";*/
 
 	bool enablePadding = strEnablePadding == "yes" ? true : false;
 
@@ -72,25 +82,150 @@ int main()
 	 VECTOR2 layerMax = { bbox.max.x,bbox.max.z };
 
 	 //step3 - rasterization
+	 std::cout << "正在光栅化...." << std::endl;
 	 ILayerRasterizer LR;
 	 LR.Init(sizeX, sizeZ, layerCount, layerMin, layerMax);
 	 LR.Rasterize(lineSegmentList,enablePadding);
-	 auto layerGroup = LR.GetRasterizedLayerGroup();
+	 const std::vector<Layer>* pLayerGroup = LR.GetRasterizedLayerGroup();
+	 std::cout << "光栅化已完成！" << std::endl;
 
-	 for (UINT i = 0;i < sizeY;++i)
+	 /*//debug info for rasterization result
+	 for (UINT z = 0;z < pLayerGroup->size();++z)
 	 {
-		 std::cout << "Rasterized result : layer " << i << std::endl;
-		 for (UINT j = 0;j < sizeX;++j)
-		 {
-			 for (UINT k = 0;k < sizeZ;++k)
-			 {
-				 std::cout << UINT(layerGroup->at(i).pixelArray[j][k]);
-			 }
-			 std::cout << std::endl;
+		auto& layerPixelMatrix = pLayerGroup->at(z).pixelArray;
+		std::cout << "layer " << z << std::endl;
+		for (UINT x = 0;x < layerPixelMatrix.size();++x)
+		{
+			for (UINT y = 0;y < layerPixelMatrix[x].size();++y)
+			{
+			 std::cout << layerPixelMatrix[x][y];
+			}
+			std::cout << std::endl;
 		 }
-		 			 std::cout << std::endl;
-	 }
+	 }*/
+	 
+
+	 //keyboard simulation preparation
+	 ::MessageBoxW(0,
+		 L"计算已完成！请在按下确定后在10秒之内把输入法切换至小写的英文，"
+		 "然后把焦点切换回MineCraft程序！然后就不要再动键盘或者电脑了！直到打印结束！", 0, 1);
+
+	 Sleep(10000);
+
+	 //start simulation
+	 SimulateKeyboard(posX, posY, posZ, sizeX,sizeY,sizeZ,blockName, pLayerGroup);
+
+	 ::MessageBoxW(0,L"打印任务完成！", 0, 0);
+
+	 std::cout << "本次MineCraft 3D打印任务成功完成!" << std::endl;
+	 std::cout << "共打印方块数：" << printedBlockCount<<std::endl;
 
 	system("pause");
 	return 0;
+}
+
+
+
+void SimulateKeyboard(
+	UINT pxPosX, UINT pxPosY, UINT pxPosZ,
+	UINT pxSizeX,UINT pxSizeY,UINT pxSizeZ, 
+	std::string blockName, const std::vector<Layer>* layerGroup)
+{
+
+
+	auto key = [](byte vkcode)
+	{
+		::keybd_event(vkcode, 0, 0, 0);
+		::keybd_event(vkcode, 0, KEYEVENTF_KEYUP, 0);
+		::Sleep(80);
+	};
+
+
+	/* for (UINT z = 0;z < layerGroup->size();++z)
+	 {
+		 auto& layerPixelMatrix = layerGroup->at(z).pixelArray;
+		 for (UINT x = 0;x < layerPixelMatrix.size();++x)
+		 {
+			 for (UINT y = 0;y < layerPixelMatrix[x].size();++y)
+			 {
+				 if (layerPixelMatrix[x][y] == 1)
+				 {
+					 key(VK_OEM_2);// a key with /?
+					 key('F');	key('I');	key('L');	key('L');
+					 key(VK_SPACE);
+
+					 std::string strPosX = std::to_string(posX + x);
+					 std::string strPosY = std::to_string(posY + y);
+					 std::string strPosZ = std::to_string(posZ + z);
+
+					 for (auto c : strPosX)key(c - '0' + VK_NUMPAD0);
+					 key(VK_SPACE);
+					 for (auto c : strPosY)key(c - '0' + VK_NUMPAD0);
+					 key(VK_SPACE);
+					 for (auto c : strPosZ)key(c - '0' + VK_NUMPAD0);
+					 key(VK_SPACE);
+
+					 for (auto c : blockName) key(toupper(c));
+
+					 //confirm
+					 key(VK_RETURN);
+					 ++printedBlockCount;
+				 }
+			 }
+		 }
+	 }*/
+
+
+	for (UINT y = 0;y < layerGroup->size();++y)
+	{
+		// because /fill command can fill a series of block
+		//thus complexity is  immediately  reduced by one order of magnitude.
+		auto& paddingRowList = layerGroup->at(y).rasterizeIntersectXList;
+		for (UINT z = 0;z < paddingRowList.size();++z)
+		{
+			for (UINT i = 0;i < paddingRowList[z].size();i+=2)
+			{
+				if (paddingRowList[y].size() - i == 1)break;
+
+				// a key with /? , open MC console
+				key(VK_OEM_2);
+				key('F');	key('I');	key('L');	key('L');
+				key(VK_SPACE);
+
+
+				UINT startPosY = pxPosY + y;
+				UINT startPosZ = pxPosZ + z;
+				UINT startPosX = pxPosX + paddingRowList[z][i] * pxSizeX;
+				UINT endPosX = pxPosX + paddingRowList[z][i+1] * pxSizeX;
+
+				std::string strStartPosX = std::to_string(startPosX);
+				std::string strEndPosX = std::to_string(endPosX);
+				std::string strPosY = std::to_string(startPosY);
+				std::string strPosZ = std::to_string(startPosZ);
+
+				for (auto c : strStartPosX)key(c - '0' + VK_NUMPAD0);
+				key(VK_SPACE);
+				for (auto c : strPosY)key(c - '0' + VK_NUMPAD0);
+				key(VK_SPACE);
+				for (auto c : strPosZ)key(c - '0' + VK_NUMPAD0);
+				key(VK_SPACE);
+
+
+				for (auto c : strEndPosX)key(c - '0' + VK_NUMPAD0);
+				key(VK_SPACE);
+				for (auto c : strPosY)key(c - '0' + VK_NUMPAD0);
+				key(VK_SPACE);
+				for (auto c : strPosZ)key(c - '0' + VK_NUMPAD0);
+				key(VK_SPACE);
+
+				for (auto c : blockName) key(toupper(c));
+
+				//confirm
+				key(VK_RETURN);
+				++printedBlockCount;
+			}
+		}
+	}
+
+
 }

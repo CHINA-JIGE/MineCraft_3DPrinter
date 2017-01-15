@@ -16,11 +16,12 @@ void ILayerRasterizer::Init(UINT pixelWidth, UINT pixelDepth, UINT layerCount, c
 
 	for (UINT  L = 0;L < layerCount;L++)
 	{
-		mLayerGroup[L].pixelArray.resize(pixelDepth);//[x]
+		mLayerGroup[L].pixelArray.resize(pixelWidth);//[x]
+		mLayerGroup[L].rasterizeIntersectXList.resize(pixelDepth);//totally 'pixelDepth' number of rows
 
-		for (int i = 0;i < pixelDepth;++i)
+		for (UINT i = 0;i < pixelWidth;++i)
 		{
-			mLayerGroup[L].pixelArray[i].resize(pixelWidth, 0);//[z]
+			mLayerGroup[L].pixelArray[i].resize(pixelDepth, 0);//[z]
 		}
 	}
 
@@ -34,13 +35,23 @@ void ILayerRasterizer::Rasterize(const std::vector<N_LineSegment>& lineSegList, 
 {
 	for (auto& line : lineSegList)
 	{
-		mFunction_RasterizeLine(line);
+		for (UINT i = 0;i < mLayerPixelHeight;++i)
+		{
+			// layer pixel height = rows in a layer
+			float normalized_scanlineY = ((float(i) + 0.5f) / mLayerPixelHeight);
+			mFunction_LineSegment_Scanline_Intersect(line,i, normalized_scanlineY);
+		}
 	}
 
-	if (padInsideArea)
+	//intersect X coord should be sorted in order to use scan line padding algorithm
+	for (auto& layer : mLayerGroup)
 	{
-		for (auto& layer : mLayerGroup)mFunction_PadInnerArea(layer);
+		for (auto & row : layer.rasterizeIntersectXList)
+			std::sort(row.begin(),row.end());
 	}
+
+	for (auto& layer : mLayerGroup)mFunction_PadInnerArea(layer,padInsideArea);
+
 }
 
 const std::vector<Layer>* ILayerRasterizer::GetRasterizedLayerGroup()
@@ -54,95 +65,83 @@ const std::vector<Layer>* ILayerRasterizer::GetRasterizedLayerGroup()
 
 *********************************************************/
 
-void ILayerRasterizer::mFunction_RasterizeLine(const N_LineSegment & line)
+void ILayerRasterizer::mFunction_LineSegment_Scanline_Intersect(const N_LineSegment & line, UINT scanlineRowID,float y)
 {
+
 	//v1,v2 are transformed into NORMALIZED space, valued in [0,1]
 	//the point with minimum x,y coord is the origin point
 	VECTOR2 v1 = { (line.v1.x - mLayerPosMin.x)/mLayerRealWidth , (line.v1.z - mLayerPosMin.y)/mLayerRealDepth };
 	VECTOR2 v2 = { (line.v2.x - mLayerPosMin.x) / mLayerRealWidth , (line.v2.z - mLayerPosMin.y) / mLayerRealDepth };
 
+
 	//line segment could come from any layer (with different Y coordinate)
 	Layer& targetLayer = mLayerGroup.at(line.LayerID);
 
-	//slope not exist
-	if (v1.x == v2.x)
+	if ((v1.y > y && v2.y > y) || (v1.y < y && v2.y <y ))
 	{
-		//FLOOR() truncation
-		UINT x = UINT(v1.x *mLayerPixelWidth);//same as v2.x * pixelWidth
-		UINT startY = UINT(v1.y * mLayerPixelHeight);
-		UINT endY = UINT(v2.y * mLayerPixelHeight);
-		if (startY == mLayerPixelHeight)startY = mLayerPixelHeight-1;
-		if (endY == mLayerPixelHeight)endY = mLayerPixelHeight-1;
-
-		//rasterize a line parallel with Y axis
-		//NOTE: don't worry that byte data overflow caused by too many self-increase
-		//because (byte % 2) is what really matters in padding
-		for (int i = startY;i <= endY;++i) ++(targetLayer.pixelArray[x][i]);
+		//there is no way scan line and line segment can intersect like this
+		return;
 	}
 
-	//compute slope
-	float k = (v2.y - v1.y) / (v2.x - v1.x);
 
-	
-	//---1.   if abs(slope)>=1.0f, then every y coord must be checked
-	if (k >= -1.0f || k <= 1.0f )
+
+	// now y valued between v1.y and v2.y can be assured
+	if (v1.y == v2.y)
 	{
-		UINT startX = UINT(v1.x * mLayerPixelWidth);
-		UINT endX = UINT(v2.x * mLayerPixelWidth);
-		UINT startY = UINT(v1.y * mLayerPixelHeight);
-		if (startX == mLayerPixelWidth)startX = mLayerPixelWidth - 1;
-		if (endX == mLayerPixelWidth)endX = mLayerPixelWidth - 1;
-		if (startY == mLayerPixelHeight)startY = mLayerPixelHeight - 1;
+		//this is a very special case
 
-		// delta_y = k * delta_x
-		for (UINT i = startX; i <= endX;++i)
-		{
-			int pixelY = int(k * (i - startX));
-			++(targetLayer.pixelArray[i][startY + pixelY]);
-		}
+		//v1.x and v2.x serve as the X region that can pad the line segment
+		targetLayer.rasterizeIntersectXList.at(scanlineRowID).push_back(v1.x);
+		targetLayer.rasterizeIntersectXList.at(scanlineRowID).push_back(v2.x);
+
+		//this v2.x serve as the start X of next horizontal padding area
+		targetLayer.rasterizeIntersectXList.at(scanlineRowID).push_back(v2.x);
+		return;
 	}
 
-	//---2.   if abs(slope)>=1.0f, then every x coord must be checked
-	if ( k < -1.0f || k > 1.0f )
+	//vector ratio coeffient t
+	float t = (y - v1.y) / (v2.y - v1.y);
+	if (t >= 0.0f && t < 1.0f) 
 	{
-		UINT startY = UINT(v1.y * mLayerPixelHeight);
-		UINT endY = UINT(v2.y * mLayerPixelHeight);
-		UINT startX = UINT(v1.x * mLayerPixelWidth);
-		if (startY == mLayerPixelHeight)startY = mLayerPixelHeight - 1;
-		if (endY == mLayerPixelHeight)endY = mLayerPixelHeight - 1;
-		if (startX == mLayerPixelWidth)startX = mLayerPixelWidth - 1;
-
-		// delta_y = k * delta_x
-		for (UINT i = startY; i <= endY;++i)
-		{
-			int pixelX = startX + int(1.0f / k * (i - startY));
-			++(targetLayer.pixelArray[pixelX][i]);
-		}
+		targetLayer.rasterizeIntersectXList.at(scanlineRowID).push_back(v1.x + t * (v2.x - v1.x));
 	}
+	return;
 
 }
 
-void ILayerRasterizer::mFunction_PadInnerArea(Layer& layer)
+
+void ILayerRasterizer::mFunction_PadInnerArea(Layer& layer, bool padInsideArea)
 {
 	//Scan Line Padding , horizontal line scan from top to bottom
-    for (UINT i = 0;i < mLayerPixelHeight;++i)
+    for (UINT y = 0;y < layer.rasterizeIntersectXList.size();++y)
 	{
-		int padState = 0;
-
-		//for every pixel row
-		for (UINT j = 0;j < mLayerPixelWidth;++j)
+		auto& XCoordRow = layer.rasterizeIntersectXList.at(y);
+		//for every X coord row
+		for (UINT j = 0;j < XCoordRow.size(); j += 2)
 		{
-			//NOTE: when using a scan line padding method
-			//each row of pixels will be scanned from left to right
-			//when encounter a pixel on which odd number of lines lie,
-			//padding start, UNTIL another pixel on which odd number of lines lie is encountered
+			//I don't know why some rows have odd intersect points....
+			if (XCoordRow.size() - j == 1)break;
 
-			//FINALLY, all pixel with value larger than 0 is occupied by a minecraft block
+			//NOTE: accurate X coordinate of intersect points derived from
+			//each scan line had been computed. now we only need quantize
+			//these X coord and start padding from odd index to even index X coord
 
-			//NOTE: +2 can remain the ODEVITY of the value of that pixel
-			if (padState % 2 == 1) layer.pixelArray[j][i] += 2;
+			UINT startX = XCoordRow.at(j)  * mLayerPixelWidth;
+			UINT endX = XCoordRow.at(j + 1)*mLayerPixelWidth;
 
-			padState += layer.pixelArray[j][i];
+			if (padInsideArea)
+			{
+				//pad from left to right
+				for (UINT x = startX;x <= endX;++x)
+				{
+					layer.pixelArray[x][y] = 1;
+				}
+			}
+			else
+			{
+				//disable padding , only mark edge pixels
+				 layer.pixelArray[startX][y] = layer.pixelArray[endX][y] = 1;
+			}
 		}
 
 	}

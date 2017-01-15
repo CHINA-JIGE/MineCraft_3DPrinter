@@ -15,6 +15,11 @@ struct Layer
 	//when an analytical line segment is rasterized,
 	//the value of pixels covered by rasterized line will increase by 1
 	std::vector<std::vector<byte>> pixelArray;
+
+	//use scan line algorithm, every line segments will intersect with
+	//each scan line , then there will many intersect points derived by each scan line
+	//because scan line is parallel with x axis, thus only x coordinate need to be stored
+	std::vector<std::vector<float>>	rasterizeIntersectXList;
 };
 
 class ILayerRasterizer
@@ -29,12 +34,14 @@ public:
 
 private:
 
-	void mFunction_RasterizeLine(const N_LineSegment& line);
+	void mFunction_LineSegment_Scanline_Intersect(const N_LineSegment& line,UINT scanlineRowID, float y);
 
 	// optional process after line rasterization(pad the inside area of closed lines)
-	void mFunction_PadInnerArea(Layer& layer);
+	void mFunction_PadInnerArea(Layer& layer, bool padInsideArea);
 
 	std::vector<Layer> mLayerGroup;
+
+
 
 	UINT mLayerPixelWidth;//how many blocks "wide"
 

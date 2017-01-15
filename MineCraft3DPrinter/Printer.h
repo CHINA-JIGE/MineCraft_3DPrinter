@@ -8,6 +8,7 @@
 #include <string>
 #include <fstream>
 #include <iostream>
+#include <algorithm>
 #include  "Math.h"
 #include "FileLoader.h"
 #include "MeshSlicer.h"
