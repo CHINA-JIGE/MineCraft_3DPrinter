@@ -9,6 +9,7 @@
 #include <fstream>
 #include <iostream>
 #include <algorithm>
+#include <sstream>
 #include  "Math.h"
 #include "FileLoader.h"
 #include "MeshSlicer.h"

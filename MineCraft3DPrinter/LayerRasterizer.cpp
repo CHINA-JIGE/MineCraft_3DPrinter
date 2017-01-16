@@ -126,8 +126,8 @@ void ILayerRasterizer::mFunction_PadInnerArea(Layer& layer, bool padInsideArea)
 			//each scan line had been computed. now we only need quantize
 			//these X coord and start padding from odd index to even index X coord
 
-			UINT startX = XCoordRow.at(j)  * mLayerPixelWidth;
-			UINT endX = XCoordRow.at(j + 1)*mLayerPixelWidth;
+			UINT startX = UINT(XCoordRow.at(j)  * float(mLayerPixelWidth));
+			UINT endX = UINT(XCoordRow.at(j + 1)*float(mLayerPixelWidth));
 
 			if (padInsideArea)
 			{
