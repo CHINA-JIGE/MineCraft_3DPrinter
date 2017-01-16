@@ -156,7 +156,7 @@ int main(int argc, char* argv[])
 	 ::MessageBoxW(0,L"打印任务完成！", 0, 0);
 
 	 std::cout << "本次MineCraft 3D打印任务成功完成!" << std::endl;
-	 std::cout << "共打印方块数：" << printedBlockCount<<std::endl;
+	 std::cout << "共打印方块片段数：" << printedBlockCount<<std::endl;
 
 	system("pause");
 	return 0;
@@ -256,7 +256,23 @@ void SimulateKeyboard(
 				for (auto c : strPosZ) { if (c == '-')key(VK_OEM_MINUS);else key(c - '0' + VK_NUMPAD0); }
 				key(VK_SPACE);
 
-				for (auto c : blockName) key(toupper(c));
+				for (auto c : blockName) 
+				{
+					if (c == '_')
+					{
+						//special case for char that need to be "shifted"
+						::keybd_event(VK_LSHIFT, 0, 0, 0);
+						::keybd_event(VK_OEM_MINUS, 0, 0, 0);
+						::keybd_event(VK_OEM_MINUS, 0, KEYEVENTF_KEYUP, 0);
+						::keybd_event(VK_LSHIFT, 0, KEYEVENTF_KEYUP, 0);
+						::Sleep(80);
+					}
+					else
+					{
+						key(toupper(c));
+					}
+
+				}
 
 				//confirm
 				key(VK_RETURN);
