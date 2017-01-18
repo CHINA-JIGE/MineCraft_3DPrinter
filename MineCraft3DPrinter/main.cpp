@@ -2,7 +2,7 @@
 
 //debug test param:
 //sphere.stl 100 100 100 10 10 10 stone yes
-static int printedBlockCount = 0;
+static int printedFragmentCount = 0;
 
 void SimulateKeyboard(
 	UINT posX ,UINT posY, UINT posZ, 
@@ -156,7 +156,7 @@ int main(int argc, char* argv[])
 	 ::MessageBoxW(0,L"打印任务完成！", 0, 0);
 
 	 std::cout << "本次MineCraft 3D打印任务成功完成!" << std::endl;
-	 std::cout << "共打印方块片段数：" << printedBlockCount<<std::endl;
+	 std::cout << "共打印方块片段数：" << printedFragmentCount<<std::endl;
 
 	system("pause");
 	return 0;
@@ -179,41 +179,6 @@ void SimulateKeyboard(
 	};
 
 
-	/* for (UINT z = 0;z < layerGroup->size();++z)
-	 {
-		 auto& layerPixelMatrix = layerGroup->at(z).pixelArray;
-		 for (UINT x = 0;x < layerPixelMatrix.size();++x)
-		 {
-			 for (UINT y = 0;y < layerPixelMatrix[x].size();++y)
-			 {
-				 if (layerPixelMatrix[x][y] == 1)
-				 {
-					 key(VK_OEM_2);// a key with /?
-					 key('F');	key('I');	key('L');	key('L');
-					 key(VK_SPACE);
-
-					 std::string strPosX = std::to_string(posX + x);
-					 std::string strPosY = std::to_string(posY + y);
-					 std::string strPosZ = std::to_string(posZ + z);
-
-					 for (auto c : strPosX)key(c - '0' + VK_NUMPAD0);
-					 key(VK_SPACE);
-					 for (auto c : strPosY)key(c - '0' + VK_NUMPAD0);
-					 key(VK_SPACE);
-					 for (auto c : strPosZ)key(c - '0' + VK_NUMPAD0);
-					 key(VK_SPACE);
-
-					 for (auto c : blockName) key(toupper(c));
-
-					 //confirm
-					 key(VK_RETURN);
-					 ++printedBlockCount;
-				 }
-			 }
-		 }
-	 }*/
-
-
 	for (UINT y = 0;y < layerGroup->size();++y)
 	{
 		// because /fill command can fill a series of block
@@ -225,12 +190,6 @@ void SimulateKeyboard(
 			{
 				if (paddingRowList[z].size() - i == 1)break;
 
-				// a key with /? , open MC console
-				key(VK_OEM_2);
-				key('F');	key('I');	key('L');	key('L');
-				key(VK_SPACE);
-
-
 				UINT startPosY = pxPosY + y;
 				UINT startPosZ = pxPosZ + z;
 				UINT startPosX = pxPosX + UINT(paddingRowList[z][i] * float(pxSizeX));
@@ -241,42 +200,43 @@ void SimulateKeyboard(
 				std::string strPosY = std::to_string(startPosY);
 				std::string strPosZ = std::to_string(startPosZ);
 
-				for (auto c : strStartPosX) { if (c == '-')key(VK_OEM_MINUS);else key(c - '0' + VK_NUMPAD0); }
-				key(VK_SPACE);
-				for (auto c : strPosY) { if (c == '-')key(VK_OEM_MINUS);else key(c - '0' + VK_NUMPAD0); }
-				key(VK_SPACE);
-				for (auto c : strPosZ) { if (c == '-')key(VK_OEM_MINUS);else key(c - '0' + VK_NUMPAD0); }
-				key(VK_SPACE);
+				//command string in MC
+				std::string commandStr;
+				commandStr += "fill " + strStartPosX + " " + strPosY+ " " + strPosZ
+					+ " " +strEndPosX + " " + strPosY + " " + strPosZ+ " " + blockName;
 
 
-				for (auto c : strEndPosX) { if (c == '-')key(VK_OEM_MINUS);else key(c - '0' + VK_NUMPAD0); }
-				key(VK_SPACE);
-				for (auto c : strPosY) { if (c == '-')key(VK_OEM_MINUS);else key(c - '0' + VK_NUMPAD0); }
-				key(VK_SPACE);
-				for (auto c : strPosZ) { if (c == '-')key(VK_OEM_MINUS);else key(c - '0' + VK_NUMPAD0); }
-				key(VK_SPACE);
-
-				for (auto c : blockName) 
+				//copy to system clipboard
+				auto copyToClipBoard = [](const char* pszData, const int nDataLen)->BOOL
 				{
-					if (c == '_')
+					if (::OpenClipboard(NULL))
 					{
-						//special case for char that need to be "shifted"
-						::keybd_event(VK_LSHIFT, 0, 0, 0);
-						::keybd_event(VK_OEM_MINUS, 0, 0, 0);
-						::keybd_event(VK_OEM_MINUS, 0, KEYEVENTF_KEYUP, 0);
-						::keybd_event(VK_LSHIFT, 0, KEYEVENTF_KEYUP, 0);
-						::Sleep(80);
+						::EmptyClipboard();
+						HGLOBAL clipbuffer;
+						char *buffer;
+						clipbuffer = ::GlobalAlloc(GMEM_DDESHARE, nDataLen + 1);
+						buffer = (char *)::GlobalLock(clipbuffer);
+						strcpy(buffer ,pszData);
+						::GlobalUnlock(clipbuffer);
+						::SetClipboardData(CF_TEXT, clipbuffer);
+						::CloseClipboard();
+						return TRUE;
 					}
-					else
-					{
-						key(toupper(c));
-					}
+					return FALSE;
+				};
+				
+				//copy
+				copyToClipBoard(commandStr.c_str(), commandStr.size());
 
-				}
-
-				//confirm
+				//OEM_2 (/?)--->open console, ctrl+v--->copy, return--->confirm
+				key(VK_OEM_2);
+				::keybd_event(VK_LCONTROL, 0, 0, 0);
+				::keybd_event('V', 0, 0, 0);
+				::keybd_event('V', 0, KEYEVENTF_KEYUP, 0);
+				::keybd_event(VK_LCONTROL, 0, KEYEVENTF_KEYUP, 0);
+				Sleep(80);
 				key(VK_RETURN);
-				++printedBlockCount;
+				++printedFragmentCount;
 			}
 		}
 	}

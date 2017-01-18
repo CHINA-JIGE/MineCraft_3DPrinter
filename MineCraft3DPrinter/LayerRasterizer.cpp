@@ -50,7 +50,7 @@ void ILayerRasterizer::Rasterize(const std::vector<N_LineSegment>& lineSegList, 
 			std::sort(row.begin(),row.end());
 	}
 
-	for (auto& layer : mLayerGroup)mFunction_PadInnerArea(layer,padInsideArea);
+	//for (auto& layer : mLayerGroup)mFunction_PadInnerArea(layer,padInsideArea);
 
 }
 
@@ -101,7 +101,7 @@ void ILayerRasterizer::mFunction_LineSegment_Scanline_Intersect(const N_LineSegm
 
 	//vector ratio coeffient t
 	float t = (y - v1.y) / (v2.y - v1.y);
-	if (t >= 0.0f && t < 1.0f) 
+	if (t >= 0.0f && t < 1.0f)
 	{
 		targetLayer.rasterizeIntersectXList.at(scanlineRowID).push_back(v1.x + t * (v2.x - v1.x));
 	}
@@ -109,7 +109,7 @@ void ILayerRasterizer::mFunction_LineSegment_Scanline_Intersect(const N_LineSegm
 
 }
 
-
+//currently not in use (2017.1.19)
 void ILayerRasterizer::mFunction_PadInnerArea(Layer& layer, bool padInsideArea)
 {
 	//Scan Line Padding , horizontal line scan from top to bottom
